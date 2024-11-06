@@ -235,26 +235,29 @@ class MainViewModel() : ViewModel() {
         bondJob?.cancel()
     }
 
-    fun cancelBond(device: DeviceVo) {
+    fun cancelBond(deviceAddress: String) {
         cancelBondJob?.cancel()
         cancelBondJob = viewModelScope.launch {
             try {
                 _state.value = state.value.copy(cancelBindEffect = effectIdle())
-                hdBluetoothManager.cancelBond(deviceAddress = device.address)
+                hdBluetoothManager.cancelBond(deviceAddress = deviceAddress)
                 _state.value =
-                    state.value.copy(cancelBindEffect = effectSuccess(device.address, Unit))
+                    state.value.copy(cancelBindEffect = effectSuccess(deviceAddress, Unit))
                 delay(2000)
-                if (state.value.connectDevice?.address == device.address) {
+                if (state.value.connectDevice?.address == deviceAddress) {
                     disconnect()
                 }
                 startScan()
             } catch (e: Exception) {
                 e.printStackTrace()
-                _state.value = state.value.copy(cancelBindEffect = effectFail(device.address, e))
+                _state.value = state.value.copy(cancelBindEffect = effectFail(deviceAddress, e))
             } finally {
                 _state.value = state.value.copy(cancelBindEffect = effectCompleted())
             }
         }
+    }
+    fun cancelBond(device: DeviceVo) {
+        cancelBond(deviceAddress = device.address)
 
     }
 

@@ -31,7 +31,6 @@ import com.yunnext.bluetooth.sample.ui.screen.compontent.LoadingComponent
 import com.yunnext.bluetooth.sample.ui.theme.BluetoothSampleTheme
 
 class MainActivity : ComponentActivity() {
-//    private val vm: MainViewModel by viewModels<MainViewModel>()
 
     private val launcher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -55,88 +54,18 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge()
             }
             BluetoothSampleTheme {
-
-//                val state by vm.state.collectAsStateWithLifecycle()
-////                val navController = rememberNavController()
-////                val currentBackStackEntryAsState by navController.currentBackStackEntryAsState()
-//
-//                val user by remember {
-//                    derivedStateOf {
-//                        state.user
-//                    }
-//                }
-//
-//
-//                var debugMsg: String by remember { mutableStateOf("") }
-//
                 val loading: Boolean by remember {
                     derivedStateOf {
                         false
                     }
                 }
-//
-//
-//                LaunchedEffect(Unit) {
-//                    snapshotFlow() {
-//                        user
-//                    }.collect {
-//                        if (it == null) {
-////                                if (currentBackStackEntryAsState?.destination?.route != Screen.Login.destination) {
-////                                    navController.navigate(Screen.Login.destination)
-////                                }
-//                            LoginActivity.skip(this@MainActivity)
-//                            finish()
-//                        } else {
-////                                navController.navigate(Screen.Home.destination)
-//                        }
-//                    }
-//                }
-//
-//                LaunchedEffect(Unit) {
-//                    vm.listProduct()
-//                }
 
-//                    LaunchedEffect(Unit) {
-//                        snapshotFlow() {
-//                            scanResult
-//                        }.collect {
-//                            when (it) {
-//                                ScanStep.Idle -> {
-//
-//                                }
-//
-//                                is ScanStep.ScanResult -> {
-//                                    navController.navigatorProductionScreen(
-//                                        ScanResultVo(
-//                                            peiJianCode = it.peiJianCode,
-//                                            wuLiuCode = it.wuLiuCode
-//                                        )
-//                                    )
-//                                    vm.scanResultComplete()
-//                                }
-//                            }
-//                        }
-//                    }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(
                         Modifier
                             .padding(0.dp)
                     ) {
-//                        HomeScreen(
-//                            Modifier
-//                                .padding(innerPadding),
-//                            products = state.products,
-//                            productModels = state.productModels,
-//                            onProductSelected = {
-//                                vm.listProductModel(it)
-//                            },
-//                            onProductModelSelected = { pm, p ->
-//                                toScan(productModel = pm, product = p)
-//                            }, onExit = {
-//                                vm.logout()
-//                            }
-//                        )
                         MainScreen(modifier = Modifier.padding(innerPadding))
                         if (loading) {
                             BasicAlertDialog(
@@ -151,25 +80,11 @@ class MainActivity : ComponentActivity() {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     LoadingComponent(modifier = Modifier.align(Alignment.Center))
                                 }
-
                             }
-
                         }
-
-//                        AnimatedVisibility(
-//                            debugMsg.isNotBlank(),
-//                            modifier = Modifier.align(Alignment.BottomCenter)
-//                        ) {
-//                            Text(debugMsg)
-//                        }
-
                     }
 
                 }
-
-//                BackHandler {
-//                    navController.popBackStack()
-//                }
             }
         }
         requestPermission()

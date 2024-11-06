@@ -63,7 +63,7 @@ internal fun BondStateComponent(
     Box(modifier = modifier
         .padding(12.dp)
         .clickable {
-            when (val effect = effect) {
+            when (val ef = effect) {
                 Effect.Completed -> {
 
                 }

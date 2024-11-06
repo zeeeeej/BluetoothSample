@@ -1,5 +1,6 @@
 package com.yunnext.bluetooth.sample.ui.screen
 
+import ZhongGuoSe
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -58,23 +57,32 @@ internal fun BluetoothDeviceList(
             contentPadding = PaddingValues(16.dp),
         ) {
             if (bondedList.isNotEmpty()) {
-                stickyHeader() {
-                    Text("已配对的设备")
+                stickyHeader(contentType = "yi_pei_dui_she_bei") {
+//                item {
+                    Text(
+                        "已配对的设备",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ZhongGuoSe.云水蓝.color)
+                    )
                 }
             }
 
             itemsIndexed(
                 bondedList,
                 { _, d -> d.address },
-                contentType = { _, _ -> "2" }) { index, d ->
+                contentType = { _, _ -> "yi_pei_dui_she_bei" }) { index, d ->
                 DeviceItem(device = d, modifier = Modifier.clickable {
                     onConnect.invoke(index)
                 }, deleteVisible = false, onDelete = { onCancelBond.invoke(index) })
             }
             if (discoveryList.isNotEmpty()) {
-                stickyHeader() {
-
-                    Column {
+                stickyHeader(contentType = "ke_yong_she_bei") {
+//                item {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(ZhongGuoSe.云水蓝.color)) {
                         Text("可用设备")
                         BondStateComponent(
                             modifier = Modifier
@@ -88,7 +96,7 @@ internal fun BluetoothDeviceList(
             itemsIndexed(
                 discoveryList,
                 { _, d -> d.address },
-                contentType = { _, _ -> "2" }) { index, d ->
+                contentType = { _, _ -> "ke_yong_she_bei" }) { index, d ->
                 DeviceItem(device = d, modifier = Modifier.clickable {
                     onBind.invoke(index)
                 }, deleteVisible = true, onDelete = {
@@ -130,25 +138,11 @@ internal fun DeviceItem(
 
         Spacer(Modifier.width(8.dp))
         Column(verticalArrangement = Arrangement.Center, modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    device.name,
-                    style = TextStyle.Default.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = Color.Black//randomZhongGuoSe().color
-                    )
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "(${device.type})",
-                    style = TextStyle.Default.copy(
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 14.sp,
-                        color = Color333//randomZhongGuoSe().color
-                    )
-                )
-            }
+            BluetoothDeviceComponent(
+                modifier = Modifier,
+                left = device.name,
+                right = device.type
+            )
             Text(
                 "(${device.address})",
                 style = TextStyle.Default.copy(
@@ -164,5 +158,32 @@ internal fun DeviceItem(
             })
         }
 
+    }
+}
+
+@Composable
+internal fun BluetoothDeviceComponent(
+    modifier: Modifier,
+    left: String,
+    right: String
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            left,
+            style = TextStyle.Default.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = Color.Black//randomZhongGuoSe().color
+            )
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "(${right})",
+            style = TextStyle.Default.copy(
+                fontWeight = FontWeight.Normal,
+                fontSize = 14.sp,
+                color = Color333//randomZhongGuoSe().color
+            )
+        )
     }
 }

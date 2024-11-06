@@ -1,6 +1,7 @@
 package com.yunnext.bluetooth.sample.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,7 +44,7 @@ fun DiscoverableComponent(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .padding(16.dp)
+            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("对外广播设置")
         CommitButton(

@@ -1,6 +1,7 @@
 package com.yunnext.bluetooth.sample.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +48,7 @@ fun RecordComponent(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .padding(16.dp)
+            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("音频录制&播放")
         CommitButton(
@@ -70,7 +71,7 @@ fun RecordComponent(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(0.dp))
 
         CommitButton(
             modifier = Modifier.fillMaxWidth(),
