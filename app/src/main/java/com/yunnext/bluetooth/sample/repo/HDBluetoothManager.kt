@@ -7,6 +7,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothServerSocket
+import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -31,13 +33,22 @@ import com.yunnext.bluetooth.sample.domain.effectSuccess
 import com.yunnext.bluetooth.sample.repo.ble.d
 import com.yunnext.bluetooth.sample.repo.ble.e
 import com.yunnext.bluetooth.sample.repo.ble.i
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.lang.IllegalStateException
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -732,6 +743,258 @@ class HDBluetoothManager(context: Context) {
         }
     }
 
+
+    //<editor-fold desc=" // 服务发现协议(SDP)">
+    @SuppressLint("MissingPermission")
+    @OptIn(ExperimentalStdlibApi::class)
+    fun bluetoothServerFlow(
+        name: String = "hadlinks-bluetooth-test12",
+        uuid: UUID = Server_UUID,
+        writeChannel: Channel<ByteArray>
+    ): Flow<BluetoothServerEvent> {
+        d("bluetoothServerFlow ------------------------------------")
+        d("bluetoothServerFlow mmServerSocket start $name $uuid...")
+        return callbackFlow<BluetoothServerEvent> {
+            var state: BluetoothServerState = BluetoothServerState.Closed
+            val mmServerSocket: BluetoothServerSocket? by lazy(LazyThreadSafetyMode.NONE) {
+//            bluetoothAdapter?.listenUsingInsecureRfcommWithServiceRecord(name, uuid)
+                bluetoothAdapter?.listenUsingRfcommWithServiceRecord(name, uuid) // 安全的
+            }
+            d("bluetoothServerFlow mmServerSocket 初始化完毕 :$mmServerSocket")
+            var myIn: InputStream? = null
+            var myOut: OutputStream? = null
+
+            val updateStateBlock: suspend BluetoothServerState.() -> Unit = {
+                d("bluetoothServerFlow mmServerSocket 状态变化：$this")
+                state = this
+                send(BluetoothServerEvent.State(state))
+            }
+
+            BluetoothServerState.Listen.updateStateBlock()
+
+            launch {
+                writeChannel.receiveAsFlow()
+
+                    .collect() {
+                        try {
+                            check(state is BluetoothServerState.Connected) {
+                                "未连接，无法发送数据 ${it.toHexString()}"
+                            }
+                            launch(Dispatchers.IO) {
+                                d("bluetoothServerFlow write:[${it.toHexString()}]")
+                                myOut?.write(it)
+                                myOut?.flush()
+                            }
+                        } catch (e: Exception) {
+                            e("bluetoothServerFlow write:[${it.toHexString()}] error :$e")
+                            e.printStackTrace()
+                        }
+                    }
+            }
+
+            launch(Dispatchers.IO) {
+                while (state !is BluetoothServerState.Closed) {
+                    d("bluetoothServerFlow accept ...... 等待客户端连接")
+                    val socket: BluetoothSocket? = try {
+                        mmServerSocket?.accept()
+                    } catch (e: IOException) {
+                        d("bluetoothServerFlow Socket's accept() method failed : $e")
+
+                        null
+                    }
+                    // 阻塞中
+                    // 当有客户端连接时
+                    val buffer = ByteArray(1024)
+                    var bytes: Int
+                    socket?.also { ss ->
+
+                        when (state) {
+                            BluetoothServerState.Closed -> {
+                                d("bluetoothServerFlow 已关闭")
+                            }
+
+                            BluetoothServerState.Listen -> {
+                                d("bluetoothServerFlow 正在监听数据...")
+                                try {
+                                    val tmpIn = ss.inputStream
+                                    val tmpOut = ss.outputStream
+                                    myIn = tmpIn
+                                    myOut = tmpOut
+                                    BluetoothServerState.Connected(ss.remoteDevice?.address ?: "")
+                                        .updateStateBlock()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    BluetoothServerState.Closed.updateStateBlock()
+                                }
+                                val tmpIn = myIn
+                                if (tmpIn != null) {
+                                    while (state is BluetoothServerState.Connected) {
+                                        try {
+                                            bytes = tmpIn.read(buffer)
+                                            println("parseCommand bytes=${bytes.toInt()}")
+                                            val v = buffer.sliceArray(0..<bytes)
+                                            println("parseCommand v=${v.size} ${v.decodeToString()} ${v.toHexString()}")
+                                            trySend(BluetoothServerEvent.Msg(buffer.sliceArray(0..<bytes)))
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                }
+                            }
+
+                            BluetoothServerState.Connecting -> {
+                                d("bluetoothServerFlow 正在连接")
+                            }
+
+                            is BluetoothServerState.Connected -> {
+                                d("bluetoothServerFlow 已连接")
+
+                            }
+                        }
+                    } ?: run {
+                        BluetoothServerState.Closed.updateStateBlock()
+                    }
+                }
+            }
+
+            awaitClose {
+                d("bluetoothServerFlow awaitClose")
+                try {
+                    myIn = null
+                    myOut = null
+                    mmServerSocket?.close()
+                } catch (e: IOException) {
+                    e("bluetoothServerFlow Could not close the connect socket")
+                }
+            }
+        }
+    }
+
+
+    @SuppressLint("MissingPermission")
+    @OptIn(ExperimentalStdlibApi::class)
+    fun bluetoothClientFlow(
+        deviceAddress: String,
+        uuid: UUID = Server_UUID,
+        writeChannel: Channel<ByteArray>
+    ): Flow<BluetoothClientEvent> {
+
+        d("bluetoothClientFlow ------------------------------------")
+        d("bluetoothClientFlow mmSocket start... ${deviceAddress} $uuid")
+        return callbackFlow<BluetoothClientEvent> {
+            val remoteDevice =
+                bluetoothAdapter.getRemoteDevice(deviceAddress) ?: return@callbackFlow
+            val mmSocket: BluetoothSocket? by lazy(LazyThreadSafetyMode.NONE) {
+                remoteDevice.createRfcommSocketToServiceRecord(uuid)
+            }
+            d("bluetoothClientFlow mmSocket 初始化完毕 $mmSocket")
+            var state: BluetoothClientState = BluetoothClientState.Closed
+            var myIn: InputStream? = null
+            var myOut: OutputStream? = null
+            val updateStateBlock: suspend BluetoothClientState.() -> Unit = {
+                d("bluetoothClientFlow  更新state :$state")
+                state = this
+                send(BluetoothClientEvent.State(state))
+            }
+            launch() {
+                writeChannel.receiveAsFlow().collect() {
+                    try {
+                        check(state is BluetoothClientState.Connected) {
+                            "未连接，无法发送数据 ${it.toHexString()}"
+                        }
+                        launch(Dispatchers.IO) {
+                            d("bluetoothClientFlow  write :${it.toHexString()}")
+                            myOut?.write(it)
+                            myOut?.flush()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                BluetoothClientState.Listen.updateStateBlock()
+            }
+
+            launch(Dispatchers.IO) {
+
+                // Cancel discovery because it otherwise slows down the connection.
+                bluetoothAdapter?.cancelDiscovery()
+                while (state != BluetoothClientState.Closed) {
+                    mmSocket?.let { socket ->
+                        // Connect to the remote device through the socket. This call blocks
+                        // until it succeeds or throws an exception.
+                        try {
+                            val buffer = ByteArray(1024)
+                            var bytes: Int
+                            d("bluetoothClientFlow  connect")
+                            socket.connect()
+                            d("bluetoothClientFlow  connect end")
+                            when (state) {
+                                BluetoothClientState.Closed -> {
+                                    d("bluetoothClientFlow  Closed")
+                                }
+
+                                BluetoothClientState.Listen -> {
+                                    d("bluetoothClientFlow  Listen")
+                                    try {
+                                        val tmpIn = socket.inputStream
+                                        val tmpOut = socket.outputStream
+                                        myIn = tmpIn
+                                        myOut = tmpOut
+                                        BluetoothClientState.Connected(deviceAddress)
+                                            .updateStateBlock()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        BluetoothClientState.Closed.updateStateBlock()
+                                    }
+
+                                    val tmpIn = myIn
+                                    if (tmpIn != null) {
+                                        while (state is BluetoothClientState.Connected) {
+                                            bytes = tmpIn.read(buffer)
+                                            println("parseCommand bytes=${bytes.toInt()}")
+                                            val v = buffer.sliceArray(0..<bytes)
+                                            println("parseCommand v=${v.size} ${v.decodeToString()} ${v.toHexString()}")
+                                            trySend(BluetoothClientEvent.Msg(buffer.sliceArray(0..<bytes)))
+                                        }
+                                    }
+                                }
+
+                                BluetoothClientState.Connecting -> {
+                                    d("bluetoothClientFlow  Connecting")
+                                }
+
+                                is BluetoothClientState.Connected -> {
+                                    d("bluetoothClientFlow  Connected")
+
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            BluetoothClientState.Closed.updateStateBlock()
+                        }
+                    }
+                }
+
+            }
+
+            awaitClose {
+                try {
+                    myIn = null
+                    myOut = null
+                    mmSocket?.close()
+                } catch (e: IOException) {
+                    e("bluetoothClientFlow Could not close the connect socket")
+                }
+            }
+        }
+    }
+
+    //</editor-fold>
+
+
 //    fun play(path: String = context.cacheDir.absolutePath + "/$DEFAULT_NAME") {
 //        val mediaPlayer = MediaPlayer().apply {
 //            setAudioStreamType(AudioManager.STREAM_MUSIC)
@@ -763,6 +1026,9 @@ class HDBluetoothManager(context: Context) {
     companion object {
         private const val KEY = "com.yunnext.bluetooth.sample.repo.HDBluetoothManager"
         internal const val DEFAULT_NAME = "hadlinks.3gp"
+        internal val Server_UUID by lazy {
+            UUID.fromString("3c858ee0-f714-4683-9a9a-bd5d8b5ec3a0")
+        }
     }
 
 }
@@ -806,3 +1072,30 @@ val DiscoverableMode.display: String
         DiscoverableMode.ScanModeConnectableDiscoverable -> "设备处于可检测到模式"
         DiscoverableMode.ScanModeNone -> "未处于可检测到模式，无法接收连接"
     }
+
+sealed interface BluetoothServerState {
+    data object Listen : BluetoothServerState
+    data object Closed : BluetoothServerState
+    data class Connected(val deviceAddress: String) : BluetoothServerState
+    data object Connecting : BluetoothServerState
+}
+
+sealed interface BluetoothServerEvent {
+    data class State(val state: BluetoothServerState) : BluetoothServerEvent
+
+    data class Msg(val data: ByteArray) : BluetoothServerEvent
+}
+
+sealed interface BluetoothClientState {
+    data object Listen : BluetoothClientState
+    data object Closed : BluetoothClientState
+    data class Connected(val deviceAddress: String) : BluetoothClientState
+    data object Connecting : BluetoothClientState
+}
+
+sealed interface BluetoothClientEvent {
+    data class State(val state: BluetoothClientState) : BluetoothClientEvent
+
+    data class Msg(val data: ByteArray) : BluetoothClientEvent
+
+}

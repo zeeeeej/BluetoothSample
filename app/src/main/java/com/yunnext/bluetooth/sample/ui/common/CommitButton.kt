@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,14 +47,15 @@ fun CommitButton(
 
     Box(
         modifier
-            .fillMaxWidth()
+            .widthIn(min = 100.dp)
+//            .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
             .drawBehind {
                 val color = if (enable) Color(0xFF3C6AF0) else Color(0xFFD8E1FC)
                 drawRect(color = color)
             }
             .clickable(enabled = enable) { onCommit() }
-            .padding(vertical = 12.dp), contentAlignment = Alignment.Center
+            .padding(vertical = 12.dp, horizontal = 12.dp), contentAlignment = Alignment.Center
     ) {
         Text(
             text, style = TextStyle.Default.copy(

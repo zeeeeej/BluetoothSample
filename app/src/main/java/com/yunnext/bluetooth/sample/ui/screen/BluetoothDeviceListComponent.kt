@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ internal fun BluetoothDeviceList(
     onConnect: (Int) -> Unit,
     onStopBond: () -> Unit,
     onCancelBond: (Int) -> Unit,
+    onStartClient: (DeviceVo) -> Unit,
 ) {
     Box(modifier = modifier) {
         LazyColumn(
@@ -70,11 +72,13 @@ internal fun BluetoothDeviceList(
 
             itemsIndexed(
                 bondedList,
-                { _, d -> d.address },
+                { _, d -> d.toString() },
                 contentType = { _, _ -> "yi_pei_dui_she_bei" }) { index, d ->
                 DeviceItem(device = d, modifier = Modifier.clickable {
                     onConnect.invoke(index)
-                }, deleteVisible = false, onDelete = { onCancelBond.invoke(index) })
+                }, deleteVisible = false, onDelete = { onCancelBond.invoke(index) }, onStartClient = {
+                    onStartClient(d)
+                })
             }
             if (discoveryList.isNotEmpty()) {
                 stickyHeader(contentType = "ke_yong_she_bei") {
@@ -95,13 +99,13 @@ internal fun BluetoothDeviceList(
             }
             itemsIndexed(
                 discoveryList,
-                { _, d -> d.address },
+                { _, d -> d.toString() },
                 contentType = { _, _ -> "ke_yong_she_bei" }) { index, d ->
                 DeviceItem(device = d, modifier = Modifier.clickable {
                     onBind.invoke(index)
                 }, deleteVisible = true, onDelete = {
 
-                })
+                },onStartClient= {})
             }
         }
     }
@@ -114,14 +118,25 @@ private fun DeviceItemPreview(modifier: Modifier = Modifier) {
         Modifier.fillMaxWidth(),
         device = DeviceWrapper("111", "222", "3333"),
         deleteVisible = true,
-        onDelete = {})
+        onDelete = {},onStartClient={})
+}
+
+@Preview("DeviceItemPreview2")
+@Composable
+private fun DeviceItemPreview2(modifier: Modifier = Modifier) {
+    DeviceItem(
+        Modifier.fillMaxWidth(),
+        device = DeviceWrapper("111", "222", "3333"),
+        deleteVisible = false,
+        onDelete = {},onStartClient={})
 }
 
 @Composable
 internal fun DeviceItem(
     modifier: Modifier = Modifier, device: DeviceWrapper,
     deleteVisible: Boolean = true,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onStartClient: () -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -153,9 +168,16 @@ internal fun DeviceItem(
             )
         }
         if (!deleteVisible) {
-            Image(Icons.Default.Delete, null, modifier = Modifier.clickable {
-                onDelete()
-            })
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Image(Icons.Default.FavoriteBorder, null, modifier = Modifier.clickable {
+                    onStartClient()
+                })
+                Image(Icons.Default.Delete, null, modifier = Modifier.clickable {
+                    onDelete()
+                })
+            }
+
         }
 
     }
