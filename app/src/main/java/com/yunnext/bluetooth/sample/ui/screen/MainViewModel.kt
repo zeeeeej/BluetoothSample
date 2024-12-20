@@ -11,20 +11,23 @@ import com.yunnext.bluetooth.sample.domain.Effect
 import com.yunnext.bluetooth.sample.domain.LoadingState
 import com.yunnext.bluetooth.sample.domain.ToastState
 import com.yunnext.bluetooth.sample.domain.effectCompleted
-import com.yunnext.bluetooth.sample.domain.effectDoIng
 import com.yunnext.bluetooth.sample.domain.effectFail
 import com.yunnext.bluetooth.sample.domain.effectIdle
+import com.yunnext.bluetooth.sample.domain.effectProgress
 import com.yunnext.bluetooth.sample.domain.effectSuccess
 import com.yunnext.bluetooth.sample.repo.BluetoothClientEvent
 import com.yunnext.bluetooth.sample.repo.BluetoothClientState
 import com.yunnext.bluetooth.sample.repo.BluetoothServerEvent
 import com.yunnext.bluetooth.sample.repo.BluetoothServerState
 import com.yunnext.bluetooth.sample.repo.DiscoverableMode
+import com.yunnext.bluetooth.sample.repo.HDAudioManager
 import com.yunnext.bluetooth.sample.repo.HDBluetoothManager
 import com.yunnext.bluetooth.sample.repo.LocalDevice
 import com.yunnext.bluetooth.sample.repo.ble.currentTime
 import com.yunnext.bluetooth.sample.repo.ble.d
+import com.yunnext.bluetooth.sample.repo.ble.lite.TestJetpackBle
 import com.yunnext.bluetooth.sample.repo.deviceClazz
+import com.yunnext.bluetooth.sample.repo.hDAudioManagerFlow
 import com.yunnext.bluetooth.sample.ui.MyApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -34,7 +37,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeout
 
 data class DeviceVo(
@@ -79,6 +81,7 @@ data class MainState(
     val startDiscoverable: Effect<Unit, DiscoverableMode> = Effect.Idle,
     val localDevice: LocalDevice = LocalDevice("", "", false),
     val typeOwner: TypeOwner = TypeOwner.NaN,
+    val audioEffect: Effect<Unit, Unit> = Effect.Idle
 ) : BaseState
 
 class MainViewModel() : ViewModel() {
@@ -88,6 +91,11 @@ class MainViewModel() : ViewModel() {
         HDBluetoothManager(MyApp.CONTEXT)
     }
 
+    private val hdAudioManager by lazy {
+        HDAudioManager(MyApp.CONTEXT)
+    }
+
+    private var audioJob: Job? = null
     private var startSDPServerJob: Job? = null
     private var startRecordJob: Job? = null
     private var startPlayJob: Job? = null
@@ -118,7 +126,7 @@ class MainViewModel() : ViewModel() {
                         discoveryDevices = emptyList(),
                         bondedDevices = emptyList()
                     )
-                    _state.value = state.value.copy(scanEffect = effectDoIng())
+                    _state.value = state.value.copy(scanEffect = effectProgress(999))
                     val j1 = launch {
                         hdBluetoothManager.discoveryDeviceFlow()
                             .collect() { source ->
@@ -399,7 +407,7 @@ class MainViewModel() : ViewModel() {
                             when (typeOwner) {
                                 TypeOwner.NaN -> {}
                                 is TypeOwner.Type -> {
-                                    when(parseCommand){
+                                    when (parseCommand) {
                                         Command.Up -> {
                                             _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
@@ -407,31 +415,37 @@ class MainViewModel() : ViewModel() {
                                                 )
                                             )
                                         }
-                                        Command.Down ->  _state.value = state.value.copy(
+
+                                        Command.Down -> _state.value = state.value.copy(
                                             typeOwner = typeOwner.copy(
                                                 direction = Direction.Down
                                             )
                                         )
-                                        Command.Left ->  _state.value = state.value.copy(
+
+                                        Command.Left -> _state.value = state.value.copy(
                                             typeOwner = typeOwner.copy(
                                                 direction = Direction.Left
                                             )
                                         )
-                                        Command.Right ->  _state.value = state.value.copy(
+
+                                        Command.Right -> _state.value = state.value.copy(
                                             typeOwner = typeOwner.copy(
                                                 direction = Direction.Right
                                             )
                                         )
-                                        Command.Start ->  _state.value = state.value.copy(
+
+                                        Command.Start -> _state.value = state.value.copy(
                                             typeOwner = typeOwner.copy(
                                                 start = true, direction = null
                                             )
                                         )
-                                        Command.Stop ->  _state.value = state.value.copy(
+
+                                        Command.Stop -> _state.value = state.value.copy(
                                             typeOwner = typeOwner.copy(
                                                 start = false, direction = null
                                             )
                                         )
+
                                         Command.OpenDiscovery -> {
                                             _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
@@ -439,6 +453,7 @@ class MainViewModel() : ViewModel() {
                                                 )
                                             )
                                         }
+
                                         null -> {}
                                     }
                                 }
@@ -505,7 +520,7 @@ class MainViewModel() : ViewModel() {
                                 when (typeOwner) {
                                     TypeOwner.NaN -> {}
                                     is TypeOwner.Type -> {
-                                        when(parseCommand){
+                                        when (parseCommand) {
                                             Command.Up -> {
                                                 _state.value = state.value.copy(
                                                     typeOwner = typeOwner.copy(
@@ -513,31 +528,37 @@ class MainViewModel() : ViewModel() {
                                                     )
                                                 )
                                             }
-                                            Command.Down ->  _state.value = state.value.copy(
+
+                                            Command.Down -> _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
                                                     direction = Direction.Down
                                                 )
                                             )
-                                            Command.Left ->  _state.value = state.value.copy(
+
+                                            Command.Left -> _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
                                                     direction = Direction.Left
                                                 )
                                             )
-                                            Command.Right ->  _state.value = state.value.copy(
+
+                                            Command.Right -> _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
                                                     direction = Direction.Right
                                                 )
                                             )
-                                            Command.Start ->  _state.value = state.value.copy(
+
+                                            Command.Start -> _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
                                                     start = true, direction = null
                                                 )
                                             )
-                                            Command.Stop ->  _state.value = state.value.copy(
+
+                                            Command.Stop -> _state.value = state.value.copy(
                                                 typeOwner = typeOwner.copy(
                                                     start = false, direction = null
                                                 )
                                             )
+
                                             Command.OpenDiscovery -> {
                                                 _state.value = state.value.copy(
                                                     typeOwner = typeOwner.copy(
@@ -545,6 +566,7 @@ class MainViewModel() : ViewModel() {
                                                     )
                                                 )
                                             }
+
                                             null -> {}
                                         }
                                     }
@@ -618,6 +640,34 @@ class MainViewModel() : ViewModel() {
 
     fun startClient(device: DeviceVo) {
         startSPPClient(deviceAddress = device.address)
+    }
+    //</editor-fold>
+
+
+    //<editor-fold desc="测试通话">
+    fun startAudio() {
+        audioJob?.cancel()
+        audioJob = viewModelScope.launch {
+            hDAudioManagerFlow(MyApp.CONTEXT).collect {
+                _state.value = state.value.copy(
+                    audioEffect = if (it) {
+                        effectProgress()
+                    } else {
+                        effectIdle()
+                    }
+                )
+            }
+        }
+    }
+
+    fun stopAudio() {
+        audioJob?.cancel()
+        audioJob = null
+    }
+
+    private val testJetpackBle = TestJetpackBle(MyApp.CONTEXT)
+    fun startBleServer() {
+        testJetpackBle.startServer()
     }
     //</editor-fold>
 }

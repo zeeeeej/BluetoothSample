@@ -25,10 +25,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.yunnext.bluetooth.sample.domain.Effect
 import com.yunnext.bluetooth.sample.domain.effectCompleted
-import com.yunnext.bluetooth.sample.domain.effectDoIng
-import com.yunnext.bluetooth.sample.domain.effectDoIngUnit
+import com.yunnext.bluetooth.sample.domain.effectProgressUnit
 import com.yunnext.bluetooth.sample.domain.effectFail
 import com.yunnext.bluetooth.sample.domain.effectIdle
+import com.yunnext.bluetooth.sample.domain.effectProgress
 import com.yunnext.bluetooth.sample.domain.effectSuccess
 import com.yunnext.bluetooth.sample.repo.ble.d
 import com.yunnext.bluetooth.sample.repo.ble.e
@@ -37,17 +37,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import java.nio.ByteBuffer
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -232,7 +230,7 @@ class HDBluetoothManager(context: Context) {
             )
             val createBond = remoteDevice.createBond()
             if (createBond) {
-                send(effectDoIng(deviceAddress, 0))
+                send(effectProgress(deviceAddress, 0))
             } else {
                 send(effectFail(deviceAddress, RuntimeException("绑定失败")))
             }
@@ -318,7 +316,7 @@ class HDBluetoothManager(context: Context) {
                         }
                     }
                 }
-                send(effectDoIng())
+                send(effectProgress())
                 context.registerReceiver(
                     broadcastReceiver, IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
                 )
@@ -416,7 +414,7 @@ class HDBluetoothManager(context: Context) {
                 }
             }
 
-            send(effectDoIngUnit(deviceAddress))
+            send(effectProgressUnit(deviceAddress))
             bluetoothAdapter.getProfileProxy(
                 context, bluetoothServiceListener, BluetoothProfile.A2DP
             )
@@ -662,11 +660,10 @@ class HDBluetoothManager(context: Context) {
                         send(effectFail(name, IllegalStateException("录制出错：$what $extra")))
                     }
                 }
-//                addOnRoutingChangedListener({ TODO("Not yet implemented") }, Handler())
             }
             mediaRecorder.prepare()
             launch {
-                send(effectDoIngUnit(name))
+                send(effectProgressUnit(name))
             }
             mediaRecorder.start()
 
@@ -729,7 +726,7 @@ class HDBluetoothManager(context: Context) {
                 setOnPreparedListener {
                     d("playFlow setOnPreparedListener")
                     launch {
-                        send(effectDoIngUnit(name))
+                        send(effectProgressUnit(name))
                     }
                 }
             }
@@ -888,19 +885,20 @@ class HDBluetoothManager(context: Context) {
                 remoteDevice.createRfcommSocketToServiceRecord(uuid)
             }
             d("bluetoothClientFlow mmSocket 初始化完毕 $mmSocket")
-            var state: BluetoothClientState = BluetoothClientState.Closed
+            val state: MutableStateFlow<BluetoothClientState> =
+                MutableStateFlow(BluetoothClientState.Closed)
             var myIn: InputStream? = null
             var myOut: OutputStream? = null
             val updateStateBlock: suspend BluetoothClientState.() -> Unit = {
                 d("bluetoothClientFlow  更新state :$state")
-                state = this
-                send(BluetoothClientEvent.State(state))
+                state.value = this
+                send(BluetoothClientEvent.State(state.value))
             }
             launch() {
                 writeChannel.receiveAsFlow().collect() {
                     try {
-                        check(state is BluetoothClientState.Connected) {
-                            "未连接，无法发送数据 ${it.toHexString()}"
+                        check(state.value is BluetoothClientState.Connected) {
+                            "未连接，无法发送数据 ${it.toHexString()} $state"
                         }
                         launch(Dispatchers.IO) {
                             d("bluetoothClientFlow  write :${it.toHexString()}")
@@ -913,15 +911,12 @@ class HDBluetoothManager(context: Context) {
                 }
             }
 
-            withContext(Dispatchers.Main) {
-                BluetoothClientState.Listen.updateStateBlock()
-            }
+
 
             launch(Dispatchers.IO) {
-
                 // Cancel discovery because it otherwise slows down the connection.
                 bluetoothAdapter?.cancelDiscovery()
-                while (state != BluetoothClientState.Closed) {
+                while (state.value == BluetoothClientState.Closed) {
                     mmSocket?.let { socket ->
                         // Connect to the remote device through the socket. This call blocks
                         // until it succeeds or throws an exception.
@@ -931,13 +926,13 @@ class HDBluetoothManager(context: Context) {
                             d("bluetoothClientFlow  connect")
                             socket.connect()
                             d("bluetoothClientFlow  connect end")
-                            when (state) {
-                                BluetoothClientState.Closed -> {
-                                    d("bluetoothClientFlow  Closed")
-                                }
-
+                            when (state.value) {
                                 BluetoothClientState.Listen -> {
                                     d("bluetoothClientFlow  Listen")
+                                }
+
+                                BluetoothClientState.Closed -> {
+                                    d("bluetoothClientFlow  Closed")
                                     try {
                                         val tmpIn = socket.inputStream
                                         val tmpOut = socket.outputStream
@@ -952,7 +947,7 @@ class HDBluetoothManager(context: Context) {
 
                                     val tmpIn = myIn
                                     if (tmpIn != null) {
-                                        while (state is BluetoothClientState.Connected) {
+                                        while (state.value is BluetoothClientState.Connected) {
                                             bytes = tmpIn.read(buffer)
                                             println("parseCommand bytes=${bytes.toInt()}")
                                             val v = buffer.sliceArray(0..<bytes)

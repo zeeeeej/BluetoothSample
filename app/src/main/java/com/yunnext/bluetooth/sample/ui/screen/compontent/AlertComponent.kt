@@ -27,7 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toIntSize
-import com.yunnext.bluetooth.sample.ui.common.clickablePure
+import com.yunext.kotlin.kmp.compose.clickablePure
 
 @Preview("AlertComponentPreview")
 @Composable

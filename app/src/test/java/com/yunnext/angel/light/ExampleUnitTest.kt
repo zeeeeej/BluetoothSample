@@ -1,8 +1,9 @@
 package com.yunnext.angel.light
 
-import com.yunnext.angel.light.repo.ble.bitCheck1
-import com.yunnext.angel.light.repo.ble.parseDeviceInfo
-import com.yunnext.angel.light.repo.ble.display
+import com.yunnext.bluetooth.sample.repo.ble.applyValueAtIndex
+import com.yunnext.bluetooth.sample.repo.ble.bitCheck1
+import com.yunnext.bluetooth.sample.repo.ble.display
+import com.yunnext.bluetooth.sample.repo.ble.parseDeviceInfo
 import org.junit.Test
 
 import org.junit.Assert.*
@@ -13,9 +14,29 @@ import org.junit.Assert.*
  * See [testing documentation](http://d.android.com/tools/testing).
  */
 class ExampleUnitTest {
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun applyValueAtIndex() {
+        val source = 0xFF01
+        val result = source.applyValueAtIndex(1,0xE)
+        println("result = ${result.toHexString()}")
+
+        assert(0xFF01.applyValueAtIndex(1,0xE) == 0xFFE1)
+        assert(0xF001.applyValueAtIndex(2,0x2) == 0xF201)
+        assert(0xF001.applyValueAtIndex(3,0xE) == 0xE001)
+//        assert(0xF001.applyValueAtIndex(4,0xF) == 0xE001)
+//        assert(0xF001.applyValueAtIndex(3,0xFf) == 0xE001)
+    }
+
+    @OptIn(ExperimentalStdlibApi::class)
     @Test
     fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+        val text = "barcodeId"
+        val payload = text.encodeToByteArray()
+        println(payload.toHexString())
+        println(payload.size)
+        println(payload.decodeToString())
+
     }
 
 
@@ -45,3 +66,5 @@ class ExampleUnitTest {
         println("adminLock=$adminLock")
     }
 }
+
+

@@ -347,7 +347,7 @@ fun parseProduction(payload: ByteArray): BleEvent.Production {
 }
 //</editor-fold>
 
-//<editor-fold desc="返回设置设备信息0xA4"> // todo
+//<editor-fold desc="返回设置设备信息0xA4"> //
 enum class SetDeviceInfoKey {
     Set1,
     Set2,

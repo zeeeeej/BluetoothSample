@@ -16,15 +16,15 @@ import androidx.compose.ui.unit.sp
 import color
 import com.yunnext.bluetooth.sample.domain.Effect
 import com.yunnext.bluetooth.sample.domain.effectCompleted
-import com.yunnext.bluetooth.sample.domain.effectDoIng
 import com.yunnext.bluetooth.sample.domain.effectFail
 import com.yunnext.bluetooth.sample.domain.effectIdle
+import com.yunnext.bluetooth.sample.domain.effectProgress
 import com.yunnext.bluetooth.sample.domain.effectSuccess
 
 @Preview("BondStateComponentPreview4")
 @Composable
 fun BondStateComponentPreview3(modifier: Modifier = Modifier) {
-    BondStateComponent(Modifier.fillMaxWidth(), effect = effectDoIng("11", 2), onCancel = {})
+    BondStateComponent(Modifier.fillMaxWidth(), effect = effectProgress("11", 2), onCancel = {})
 }
 
 @Preview("BondStateComponentPreview3")
@@ -97,4 +97,6 @@ internal fun BondStateComponent(
             )
         )
     }
+    // todo 哈哈
+
 }

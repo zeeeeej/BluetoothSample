@@ -105,6 +105,9 @@ dependencies {
     //implementation(libs.bundles.ktor.client)
     implementation(libs.bundles.http)
     implementation(libs.fastble)
+    implementation(libs.androidx.bluetooth)
+    implementation(libs.zeeeeej.yunext.common.android)
+    implementation(libs.zeeeeej.yunext.compose.android)
 
 
 }
